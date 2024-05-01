@@ -22,7 +22,7 @@ func Dialer() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	conn, err := d.DialContext(ctx, "tcp", "localhost:8443")
+	conn, err := d.DialContext(ctx, "tcp", "www.insti.app:443")
 	if err != nil {
 		log.Fatalf("Failed to dial: %v", err)
 	}
@@ -35,6 +35,16 @@ func Dialer() {
 	if _, err := conn.Write(buf); err != nil {
 		log.Fatal(err)
 	}
+
+	var shello *ServerHello
+	if shello, err = SHelloHandshakeFromConn(&conn); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("% x \n", shello.random.random_bytes)
+
+	// Assuming connection always requires server cert
+	// ServerCertificate record parsing
 }
 
 func main() {
@@ -45,7 +55,7 @@ func main() {
 func testTLSPlainText() []byte {
 	var random_bytes [28]byte
 	rand.Read(random_bytes[:])
-	var random = ClientHelloRandom{
+	var random = HandshakeRandom{
 		gmt_unix_timestamp: uint32(time.Now().UnixMilli() / 1000.0),
 		random_bytes:       random_bytes,
 	}
