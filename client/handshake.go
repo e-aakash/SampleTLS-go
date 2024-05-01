@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -140,4 +141,78 @@ func SHelloHandshakeFromConn(conn *net.Conn) (hello *ServerHello, err error) {
 	fmt.Println("ServerHello: ", serverHello)
 
 	return &serverHello, nil
+}
+
+type CertificateRecord struct {
+	cert_bytes [3]uint8
+	cert       *x509.Certificate
+}
+
+type ServerCertificate struct {
+	// TODO: Create uint28 instead of defining it everywhere as slice
+	payload_bytes    [3]uint8
+	certificate_list []CertificateRecord
+}
+
+// TODO / FIXME: Do we really need reader interface, when we have already read bytes as []byte from network?
+// This quesion applies to all inner handshake messages
+func (scert *ServerCertificate) FromReader(reader io.Reader) error {
+	var payloadLengthBytes [3]uint8 // only 28 bytes is sent as length
+	binary.Read(reader, binary.BigEndian, &payloadLengthBytes)
+
+	var payloadLength uint32 = ((uint32)(payloadLengthBytes[0]))<<16 + ((uint32)(payloadLengthBytes[1]))<<8 + ((uint32)(payloadLengthBytes[2]))
+
+	data := make([]byte, payloadLength)
+	binary.Read(reader, binary.BigEndian, &data)
+	// fmt.Printf("% x\n", data)
+
+	scert.certificate_list = make([]CertificateRecord, 0)
+	var err error
+	cert_count := 0
+	for current_index := uint32(0); current_index < payloadLength; {
+		cert := CertificateRecord{}
+		copy(cert.cert_bytes[:], data[current_index:current_index+3])
+		// fmt.Printf("% x\n", cert.cert_bytes[:])
+		var len uint32 = ((uint32)(cert.cert_bytes[0]))<<16 + ((uint32)(cert.cert_bytes[1]))<<8 + ((uint32)(cert.cert_bytes[2]))
+
+		current_index += 3
+		cert_count += 1
+		fmt.Println("Cert ", cert_count, ", len", len)
+		cert.cert, err = x509.ParseCertificate(data[current_index : current_index+len])
+		if err != nil {
+			fmt.Println("error parsing cert")
+		}
+		current_index += len
+		scert.certificate_list = append(scert.certificate_list, cert)
+		// break
+	}
+
+	return nil
+}
+
+func SCertHandshakeFromConn(conn *net.Conn) (hello *ServerCertificate, err error) {
+	var skippedBytes [5]uint8
+	binary.Read(*conn, binary.BigEndian, &skippedBytes)
+	var rawValue uint8
+	binary.Read(*conn, binary.BigEndian, &rawValue)
+
+	fmt.Println("handshake type: ", rawValue)
+	if HandshakeType(rawValue) != (Certificate) {
+		// handle error, terminate connection
+		fmt.Println("Invalid response from server, expected certificate record")
+	}
+
+	var payloadLengthBytes [3]uint8 // only 28 bytes is sent as length
+	binary.Read(*conn, binary.BigEndian, &payloadLengthBytes)
+
+	var payloadLength uint32 = ((uint32)(payloadLengthBytes[0]))<<16 + ((uint32)(payloadLengthBytes[1]))<<8 + ((uint32)(payloadLengthBytes[2]))
+	data := make([]byte, payloadLength)
+	binary.Read(*conn, binary.BigEndian, data)
+
+	certificate := ServerCertificate{}
+	r := bytes.NewReader(data)
+	certificate.FromReader(r)
+	// fmt.Println("ServerCert: ", certificate)
+
+	return &certificate, nil
 }

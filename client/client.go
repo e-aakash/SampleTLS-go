@@ -44,7 +44,11 @@ func Dialer() {
 	fmt.Printf("% x \n", shello.random.random_bytes)
 
 	// Assuming connection always requires server cert
-	// ServerCertificate record parsing
+	var scert *ServerCertificate
+	if scert, err = SCertHandshakeFromConn(&conn); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(scert.certificate_list[0].cert.Subject)
 }
 
 func main() {
