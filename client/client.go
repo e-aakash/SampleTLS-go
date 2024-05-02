@@ -59,6 +59,8 @@ func Dialer() {
 		log.Fatal(err)
 	}
 	fmt.Println("Server hello done")
+
+	// Validate params so far and cert from server
 }
 
 func main() {
@@ -78,8 +80,8 @@ func testTLSPlainText() []byte {
 		random:                    random,
 		session_id_length:         0,
 		session_id:                []byte{},
-		cipher_suites_length:      4,
-		cipher_suites:             []CipherSuite{TLS_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA256},
+		cipher_suites_length:      2,
+		cipher_suites:             []CipherSuite{TLS_RSA_WITH_AES_128_CBC_SHA256},
 		compression_method_length: 1,
 		compression_method:        []CompressionMethod{NullCompression},
 	}

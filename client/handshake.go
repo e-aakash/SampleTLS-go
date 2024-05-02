@@ -234,3 +234,18 @@ func SHelloDoneHandshakeFromConn(conn *net.Conn) (err error) {
 
 	return nil
 }
+
+type PreMasterSecret struct {
+	client_version ProtocolVersion
+	random         [46]byte
+}
+
+type ClientKeyExchangeRSA struct {
+	length                     uint16
+	encrypted_premaster_secret []byte
+}
+
+func (pms *PreMasterSecret) createMessage() (*ClientKeyExchangeRSA, error) {
+	// TODO : encrypt using cert?
+	return nil, nil
+}
