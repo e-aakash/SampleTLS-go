@@ -216,3 +216,21 @@ func SCertHandshakeFromConn(conn *net.Conn) (hello *ServerCertificate, err error
 
 	return &certificate, nil
 }
+
+func SHelloDoneHandshakeFromConn(conn *net.Conn) (err error) {
+	var skippedBytes [5]uint8
+	binary.Read(*conn, binary.BigEndian, &skippedBytes)
+	var rawValue uint8
+	binary.Read(*conn, binary.BigEndian, &rawValue)
+
+	fmt.Println("handshake type: ", rawValue)
+	if HandshakeType(rawValue) != (Server_hello_done) {
+		// handle error, terminate connection
+		fmt.Println("Invalid response from server, expected server hello done")
+	}
+
+	var payloadLengthBytes [3]uint8 // only 28 bytes is sent as length
+	binary.Read(*conn, binary.BigEndian, &payloadLengthBytes)
+
+	return nil
+}

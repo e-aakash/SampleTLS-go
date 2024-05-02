@@ -36,6 +36,8 @@ func Dialer() {
 		log.Fatal(err)
 	}
 
+	// TODO: Think of a better way of handling the state machine/sequence?
+
 	var shello *ServerHello
 	if shello, err = SHelloHandshakeFromConn(&conn); err != nil {
 		log.Fatal(err)
@@ -49,6 +51,14 @@ func Dialer() {
 		log.Fatal(err)
 	}
 	fmt.Println(scert.certificate_list[0].cert.Subject)
+
+	// TODO: Implement server key exchange message parsing if selected algo requires it
+
+	// Server Hello done
+	if err = SHelloDoneHandshakeFromConn(&conn); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Server hello done")
 }
 
 func main() {
