@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"net"
 )
 
@@ -245,7 +248,46 @@ type ClientKeyExchangeRSA struct {
 	encrypted_premaster_secret []byte
 }
 
-func (pms *PreMasterSecret) createMessage() (*ClientKeyExchangeRSA, error) {
+func (pms *PreMasterSecret) CreateMessage(sc *ServerCertificate) (*ClientKeyExchangeRSA, error) {
+	var err error
 	// TODO : encrypt using cert?
-	return nil, nil
+	plain_text := make([]byte, 46)
+	plain_text[0] = pms.client_version.major
+	plain_text[1] = pms.client_version.minor
+
+	copy(plain_text[2:], pms.random[:])
+
+	// assuming list always has > 0 entry
+	rsa_public_key := sc.certificate_list[0].cert.PublicKey.(*rsa.PublicKey)
+	cke := ClientKeyExchangeRSA{}
+	if cke.encrypted_premaster_secret, err = rsa.EncryptPKCS1v15(rand.Reader, rsa_public_key, plain_text); err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+	// this will always be within uint16
+	cke.length = (uint16)(len(cke.encrypted_premaster_secret))
+
+	return &cke, nil
+}
+
+func (cke *ClientKeyExchangeRSA) Bytes() []byte {
+	bytes := make([]byte, 2+len(cke.encrypted_premaster_secret))
+	bytes[0] = byte(cke.length >> 8)
+	bytes[1] = byte(cke.length & 0b11111111)
+	copy(bytes[2:], cke.encrypted_premaster_secret)
+	return bytes
+}
+
+type ChangeCihperSpecType uint8
+
+const (
+	ChangeCipherSpecValue ChangeCihperSpecType = 1
+)
+
+type ChangeCihperSpecMesasge struct {
+	// message_type ChangeCihperSpecType
+}
+
+func (*ChangeCihperSpecMesasge) Bytes() []byte {
+	return []byte{byte(ChangeCipherSpecValue)}
 }

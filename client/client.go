@@ -61,6 +61,58 @@ func Dialer() {
 	fmt.Println("Server hello done")
 
 	// Validate params so far and cert from server
+
+	// Send client key exchange
+	pms := PreMasterSecret{
+		client_version: TLS1_2, // get this from client hello, as per spec
+	}
+	rand.Read(pms.random[:])
+
+	cke, _ := pms.CreateMessage(scert)
+	var cke_bytes = cke.Bytes()
+	var handshake = Handshake{
+		handshakeType: Client_key_exchange,
+		length:        uint32(len(cke_bytes)),
+		body:          cke_bytes,
+	}
+	handshake_bytes := handshake.Bytes()
+	var plaintext = TLSPlainText{
+		contentType: Handshake_type,
+		version:     TLS1_2,
+		length:      uint16(len(handshake_bytes)),
+		fragment:    handshake_bytes,
+	}
+
+	// TODO: Move this to func in all tls message types?
+	bytes_buffer := new(bytes.Buffer)
+	_ = plaintext.GetBytes(bytes_buffer)
+	buf = bytes_buffer.Bytes()
+
+	if _, err := conn.Write(buf); err != nil {
+		log.Fatal(err)
+	}
+
+	// Change cipher spec
+	ccs := ChangeCihperSpecMesasge{}
+	ccs_bytes := ccs.Bytes()
+	plaintext = TLSPlainText{
+		contentType: Change_cipher_spec_type,
+		version:     TLS1_2,
+		length:      uint16(len(ccs_bytes)),
+		fragment:    ccs_bytes,
+	}
+	bytes_buffer.Reset()
+	_ = plaintext.GetBytes(bytes_buffer)
+	buf = bytes_buffer.Bytes()
+
+	if _, err := conn.Write(buf); err != nil {
+		log.Fatal(err)
+	}
+
+	// Client FIN
+
+	// for now close the connection to ensure server conn is cleaned up
+	conn.Close()
 }
 
 func main() {
@@ -94,7 +146,7 @@ func testTLSPlainText() []byte {
 	handshake_bytes := handshake.Bytes()
 	var plaintext = TLSPlainText{
 		contentType: Handshake_type,
-		version:     TLS1_1,
+		version:     TLS1_2,
 		length:      uint16(len(handshake_bytes)),
 		fragment:    handshake_bytes,
 	}
