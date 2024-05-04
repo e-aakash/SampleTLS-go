@@ -52,6 +52,7 @@ func (handshake *Handshake) Bytes() []byte {
 	return buf.Bytes()
 }
 
+// TODO / OPT: Make this a 32 byte single field struct?
 type HandshakeRandom struct {
 	gmt_unix_timestamp uint32
 	random_bytes       [28]byte
@@ -243,6 +244,16 @@ type PreMasterSecret struct {
 	random         [46]byte
 }
 
+func (pms *PreMasterSecret) Bytes() []byte {
+	pms_bytes := make([]byte, 46)
+	pms_bytes[0] = pms.client_version.major
+	pms_bytes[1] = pms.client_version.minor
+
+	copy(pms_bytes[2:], pms.random[:])
+
+	return pms_bytes
+}
+
 type ClientKeyExchangeRSA struct {
 	length                     uint16
 	encrypted_premaster_secret []byte
@@ -250,13 +261,7 @@ type ClientKeyExchangeRSA struct {
 
 func (pms *PreMasterSecret) CreateMessage(sc *ServerCertificate) (*ClientKeyExchangeRSA, error) {
 	var err error
-	// TODO : encrypt using cert?
-	plain_text := make([]byte, 46)
-	plain_text[0] = pms.client_version.major
-	plain_text[1] = pms.client_version.minor
-
-	copy(plain_text[2:], pms.random[:])
-
+	plain_text := pms.Bytes()
 	// assuming list always has > 0 entry
 	rsa_public_key := sc.certificate_list[0].cert.PublicKey.(*rsa.PublicKey)
 	cke := ClientKeyExchangeRSA{}
@@ -290,4 +295,16 @@ type ChangeCihperSpecMesasge struct {
 
 func (*ChangeCihperSpecMesasge) Bytes() []byte {
 	return []byte{byte(ChangeCipherSpecValue)}
+}
+
+type ClientFinished struct {
+	verify_data_length [3]uint8
+	verify_data        [12]byte
+}
+
+func (cfin *ClientFinished) Bytes() []byte {
+	buf := make([]byte, 15)
+	copy(buf[0:3], cfin.verify_data_length[:])
+	copy(buf[3:], cfin.verify_data[:])
+	return buf
 }

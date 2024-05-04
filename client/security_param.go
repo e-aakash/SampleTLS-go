@@ -56,7 +56,7 @@ type SecurityParams struct {
 	enc_key_length     uint8
 	block_length       uint8
 	fixed_iv_length    uint8
-	record_iv_lenght   uint8
+	record_iv_length   uint8
 	mac_algo           MACAlgo
 	mac_length         uint8
 	mac_key_length     uint8
@@ -64,6 +64,16 @@ type SecurityParams struct {
 	master_secret      [48]byte
 	client_random      [32]byte
 	server_random      [32]byte
+}
+
+type TLSSecurityKeys struct {
+	client_write_MAC_key []byte
+	server_write_MAC_key []byte
+	client_write_key     []byte
+	server_write_key     []byte
+	// This is needed only in AEAD
+	client_write_iv []byte
+	server_write_iv []byte
 }
 
 type CipherSuite uint16
